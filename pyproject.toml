@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osp-core"
+version = "0.1.0"
+description = "Shared canonical data model + tenancy + entitlements for the OSP suite (Make-Ready, REDLINE, BIM, ODEN)."
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=4.2",
+    "djangorestframework>=3.14",
+    "psycopg2-binary>=2.9",
+]
+
+[tool.setuptools.packages.find]
+include = ["osp_core*"]
