@@ -1,12 +1,12 @@
 """
-Row-Level Security for the core tables. Each request sets `app.tenant_id`
-(see middleware.py); these policies ensure a connection can only see/modify rows
-for that tenant -- DB-enforced isolation, independent of app code.
+Row-Level Security for the tenant-scoped core tables. Each request sets
+`app.tenant_id` (see middleware.py); these policies ensure a connection only
+sees/modifies rows for that tenant. FORCE makes even the table owner obey.
 
-IMPORTANT: the DB role your apps connect as must NOT own the tables as superuser
-(superusers/owners bypass RLS). FORCE ROW LEVEL SECURITY below makes even the
-owner obey the policy. Run migrations as an admin role, connect apps as a
-non-superuser role.
+core.user is intentionally excluded -- it's global identity (no tenant_id); access
+to it is mediated by Membership + app logic.
+
+Requires the connecting role to be NON-superuser (superusers bypass RLS).
 """
 from django.db import migrations
 
@@ -15,6 +15,7 @@ _TID = "NULLIF(current_setting('app.tenant_id', true), '')::bigint"
 # (table, tenant-column-expression)
 _TABLES = [
     ('core"."tenant', "id"),
+    ('core"."membership', "tenant_id"),
     ('core"."entitlement', "tenant_id"),
     ('core"."project', "tenant_id"),
     ('core"."pole', "tenant_id"),
@@ -24,7 +25,7 @@ _TABLES = [
 
 
 def _enable(table, col):
-    t = '"%s"' % table  # -> "core"."x"
+    t = '"%s"' % table
     return (
         f'ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;\n'
         f'ALTER TABLE {t} FORCE ROW LEVEL SECURITY;\n'
