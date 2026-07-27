@@ -1,38 +1,38 @@
 """
-Row-Level Security for the tenant-scoped core tables. Each request sets
-`app.tenant_id` (see middleware.py); these policies ensure a connection only
-sees/modifies rows for that tenant. FORCE makes even the table owner obey.
+Row-Level Security for the tenant-scoped DATA tables. Each request sets
+`app.tenant_id` (authentication.py, after resolving the tenant from the JWT); the
+policy then limits the connection to that tenant's rows.
 
-core.user is intentionally excluded -- it's global identity (no tenant_id); access
-to it is mediated by Membership + app logic.
-
-Requires the connecting role to be NON-superuser (superusers bypass RLS).
+Design choices (see PLATFORM-ARCHITECTURE.md):
+- RLS is applied to DATA tables only (entitlement, project, pole, attachment,
+  audit). The IDENTITY tables (tenant, user, membership) are intentionally left
+  open so the auth layer can upsert them before any tenant context exists — access
+  to identity is governed by Membership + app logic.
+- ENABLE without FORCE: the table OWNER (used for migrations + admin/backfill)
+  bypasses RLS, so those operations work; the runtime app must connect as a
+  NON-owner role (osp_app) for the policy to take effect.
 """
 from django.db import migrations
 
 _TID = "NULLIF(current_setting('app.tenant_id', true), '')::bigint"
 
-# (table, tenant-column-expression)
 _TABLES = [
-    ('core"."tenant', "id"),
-    ('core"."membership', "tenant_id"),
-    ('core"."entitlement', "tenant_id"),
-    ('core"."project', "tenant_id"),
-    ('core"."pole', "tenant_id"),
-    ('core"."attachment', "tenant_id"),
-    ('core"."audit', "tenant_id"),
+    'core"."entitlement',
+    'core"."project',
+    'core"."pole',
+    'core"."attachment',
+    'core"."audit',
 ]
 
 
-def _enable(table, col):
+def _enable(table):
     t = '"%s"' % table
     return (
         f'ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;\n'
-        f'ALTER TABLE {t} FORCE ROW LEVEL SECURITY;\n'
         f'DROP POLICY IF EXISTS tenant_isolation ON {t};\n'
         f'CREATE POLICY tenant_isolation ON {t}\n'
-        f'  USING ({col} = {_TID})\n'
-        f'  WITH CHECK ({col} = {_TID});'
+        f'  USING (tenant_id = {_TID})\n'
+        f'  WITH CHECK (tenant_id = {_TID});'
     )
 
 
@@ -40,7 +40,6 @@ def _disable(table):
     t = '"%s"' % table
     return (
         f'DROP POLICY IF EXISTS tenant_isolation ON {t};\n'
-        f'ALTER TABLE {t} NO FORCE ROW LEVEL SECURITY;\n'
         f'ALTER TABLE {t} DISABLE ROW LEVEL SECURITY;'
     )
 
@@ -50,6 +49,5 @@ class Migration(migrations.Migration):
     dependencies = [("osp_core", "0001_initial")]
 
     operations = [
-        migrations.RunSQL(sql=_enable(tbl, col), reverse_sql=_disable(tbl))
-        for tbl, col in _TABLES
+        migrations.RunSQL(sql=_enable(t), reverse_sql=_disable(t)) for t in _TABLES
     ]

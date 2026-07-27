@@ -54,6 +54,16 @@ class User(TimeStamped):
     class Meta:
         db_table = 'core"."user'
 
+    # DRF principal shim: authentication.py returns this instance as request.user
+    # and attaches .tenant_id / .roles at auth time.
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
     def __str__(self):
         return self.email
 
