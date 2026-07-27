@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 dist/
 build/
+*.sqlite3
+staticfiles/

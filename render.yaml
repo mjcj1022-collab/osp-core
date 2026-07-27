@@ -1,0 +1,32 @@
+# Render blueprint for the OSP shared backend — ONE service, ONE database that
+# BIM / REDLINE / Make-Ready (and ODEN) all call.
+#
+# Set the two `sync:false` secrets in the Render dashboard after first deploy:
+#   DATABASE_URL       the shared Postgres (Supabase/Neon/Render Postgres).
+#                      Must have the `postgis` extension available (RLS + PostGIS
+#                      migrations run on first migrate).
+#   GOTRUE_JWT_SECRET  your Netlify Identity JWT secret (verifies logins).
+services:
+  - type: web
+    name: osp-shared-backend
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    # Runs migrations before each deploy goes live (creates the core schema,
+    # RLS policies, and the PostGIS geom column on first run).
+    preDeployCommand: python manage.py migrate --noinput
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: DB_SSL_REQUIRE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: GOTRUE_JWT_SECRET
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://light-speed-bim.netlify.app,https://redline-app.netlify.app,https://courageous-seahorse-d21112.netlify.app,https://lucky-basbousa-c909b8.netlify.app"
