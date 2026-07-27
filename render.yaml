@@ -34,7 +34,8 @@ services:
         value: "*"
       - key: DB_SSL_REQUIRE
         value: "true"
-      - key: GOTRUE_JWT_SECRET
-        sync: false
+      # GOTRUE_JWT_SECRET (verifies Netlify Identity logins) is added later in the
+      # dashboard when app auth is wired — omitted here so the blueprint has no
+      # required secret and deploys straight through. Auth endpoints 401 until set.
       - key: CORS_ALLOWED_ORIGINS
         value: "https://light-speed-bim.netlify.app,https://redline-app.netlify.app,https://courageous-seahorse-d21112.netlify.app,https://lucky-basbousa-c909b8.netlify.app"
