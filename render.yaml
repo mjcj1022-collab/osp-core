@@ -1,21 +1,31 @@
-# Render blueprint for the OSP shared backend — ONE service, ONE database that
+# Render blueprint for the OSP shared backend — ONE service + ONE database that
 # BIM / REDLINE / Make-Ready (and ODEN) all call.
 #
-# Set the two `sync:false` secrets in the Render dashboard after first deploy:
-#   DATABASE_URL       the shared Postgres (Supabase/Neon/Render Postgres).
-#                      Must have the `postgis` extension available (RLS + PostGIS
-#                      migrations run on first migrate).
-#   GOTRUE_JWT_SECRET  your Netlify Identity JWT secret (verifies logins).
+# This blueprint provisions BOTH the Postgres database and the web service, and
+# auto-injects DATABASE_URL — so no DB password is ever handled by hand.
+#
+# The only secret to set manually (in the dashboard, later) is GOTRUE_JWT_SECRET,
+# used to verify Netlify Identity logins. It can stay blank until app auth is
+# wired; the service still deploys, migrates, and serves /healthz without it.
+databases:
+  - name: osp-db
+    plan: free
+    postgresMajorVersion: "16"
+
 services:
   - type: web
     name: osp-shared-backend
     runtime: docker
     plan: free
     healthCheckPath: /healthz
-    # Runs migrations before each deploy goes live (creates the core schema,
-    # RLS policies, and the PostGIS geom column on first run).
+    # Creates the core schema, RLS policies, and the PostGIS geom column on first
+    # deploy, and applies any later migrations before traffic shifts.
     preDeployCommand: python manage.py migrate --noinput
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: osp-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
@@ -24,8 +34,6 @@ services:
         value: "*"
       - key: DB_SSL_REQUIRE
         value: "true"
-      - key: DATABASE_URL
-        sync: false
       - key: GOTRUE_JWT_SECRET
         sync: false
       - key: CORS_ALLOWED_ORIGINS
