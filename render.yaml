@@ -18,9 +18,9 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /healthz
-    # Creates the core schema, RLS policies, and the PostGIS geom column on first
-    # deploy, and applies any later migrations before traffic shifts.
-    preDeployCommand: python manage.py migrate --noinput
+    # Free tier doesn't support preDeployCommand, so migrations run at container
+    # startup (see the Docker CMD) — creating the core schema, RLS policies, and
+    # the PostGIS geom column on first boot.
     envVars:
       - key: DATABASE_URL
         fromDatabase:

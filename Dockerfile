@@ -15,5 +15,6 @@ COPY . .
 RUN python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
-# Render/most hosts inject $PORT; default to 8000 locally.
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3 --timeout 120
+# Run migrations at startup (free tier has no pre-deploy hook), then serve.
+# Free plan runs a single instance, so there's no concurrent-migrate race.
+CMD python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3 --timeout 120
